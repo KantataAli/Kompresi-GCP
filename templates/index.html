@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CompressBot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Reset & Variables ───────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0a1628;
+    --bg-2:        #0d1f3c;
+    --bg-3:        #112a50;
+    --border:      #1a3a6b;
+    --accent:      #5ba3d9;
+    --accent-dim:  #1a4a7a;
+    --accent-glow: rgba(91,163,217,.15);
+    --bot-bubble:  #112a50;
+    --user-bubble: #0e3264;
+    --text:        #cfe2f3;
+    --text-dim:    #7aaac8;
+    --text-muted:  #3a6080;
+    --danger:      #f87171;
+    --warn:        #fbbf24;
+    --radius:      14px;
+    --radius-sm:   8px;
+    --font-main:   'Sora', sans-serif;
+    --font-mono:   'JetBrains Mono', monospace;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-main);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Shell ───────────────────────────────────────── */
+  .shell {
+    width: 100%;
+    max-width: 780px;
+    height: 100vh;
+    max-height: 900px;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    position: relative;
+  }
+
+  /* ── Header ──────────────────────────────────────── */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .bot-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5ba3d9 0%, #0d5ea6 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    box-shadow: 0 0 16px var(--accent-glow);
+  }
+  .header-info { flex: 1; }
+  .header-name { font-size: 15px; font-weight: 600; letter-spacing: -.3px; }
+  .header-status {
+    font-size: 11px; color: var(--accent);
+    display: flex; align-items: center; gap: 5px;
+    font-family: var(--font-mono);
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50%      { opacity: .3; }
+  }
+  .header-badge {
+    font-size: 10px; font-family: var(--font-mono);
+    background: var(--accent-glow);
+    border: 1px solid var(--accent-dim);
+    color: var(--accent);
+    padding: 3px 8px; border-radius: 20px;
+    letter-spacing: .5px;
+  }
+
+  /* ── Chat Area ───────────────────────────────────── */
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scroll-behavior: smooth;
+  }
+  #chat::-webkit-scrollbar { width: 4px; }
+  #chat::-webkit-scrollbar-track { background: transparent; }
+  #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Bubbles ─────────────────────────────────────── */
+  .row { display: flex; gap: 10px; align-items: flex-end; }
+  .row.bot  { flex-direction: row; }
+  .row.user { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, #5ba3d9 0%, #0d5ea6 100%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+  }
+  .row.user .avatar {
+    background: linear-gradient(135deg, #3a6ea8 0%, #0d3d6b 100%);
+  }
+
+  .bubble {
+    max-width: 72%;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    line-height: 1.65;
+    position: relative;
+    animation: pop .2s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes pop {
+    from { transform: scale(.92); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .row.bot  .bubble { background: var(--bot-bubble); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+  .row.user .bubble { background: var(--user-bubble); border-bottom-right-radius: 4px; border: 1px solid var(--accent-dim); }
+
+  .bubble .ts {
+    font-size: 10px; color: var(--text-muted);
+    font-family: var(--font-mono);
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  /* ── Button grid inside bubbles ──────────────────── */
+  .btn-grid {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-top: 12px;
+  }
+  .chip {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: var(--font-main);
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .chip.selected {
+    background: var(--accent-glow);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .chip:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* ── Upload drop zone ────────────────────────────── */
+  .upload-zone {
+    margin-top: 12px;
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon { font-size: 28px; margin-bottom: 6px; }
+  .upload-label { font-size: 13px; color: var(--text-dim); }
+  .upload-hint  { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: var(--font-mono); }
+
+  /* ── Progress ────────────────────────────────────── */
+  .progress-wrap {
+    margin-top: 10px;
+    background: var(--bg-3);
+    border-radius: 4px;
+    overflow: hidden;
+    height: 4px;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #5ba3d9, #a8d4f0);
+    border-radius: 4px;
+    transition: width .3s;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer {
+    0%   { filter: brightness(1); }
+    50%  { filter: brightness(1.3); }
+    100% { filter: brightness(1); }
+  }
+
+  /* ── Result card ─────────────────────────────────── */
+  .result-card {
+    margin-top: 10px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+  }
+  .result-row {
+    display: flex; justify-content: space-between;
+    font-size: 12.5px; font-family: var(--font-mono);
+    padding: 3px 0;
+    color: var(--text-dim);
+  }
+  .result-row span:last-child { color: var(--text); }
+  .saved-badge {
+    display: inline-block;
+    background: var(--accent-glow);
+    border: 1px solid var(--accent-dim);
+    color: var(--accent);
+    font-size: 11px; font-family: var(--font-mono);
+    padding: 2px 8px; border-radius: 10px;
+    margin-left: 6px;
+  }
+  .dl-btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; margin-top: 12px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600; font-size: 13px;
+    padding: 10px;
+    border: none; border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .15s;
+    font-family: var(--font-main);
+  }
+  .dl-btn:hover { opacity: .85; }
+
+  /* ── Typing indicator ────────────────────────────── */
+  .typing .bubble {
+    padding: 14px 18px;
+    display: flex; gap: 5px; align-items: center;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-muted);
+    animation: bounce .9s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: .15s; }
+  .dot:nth-child(3) { animation-delay: .30s; }
+  @keyframes bounce {
+    0%,80%,100% { transform: translateY(0); }
+    40%         { transform: translateY(-6px); }
+  }
+
+  /* ── Footer / input ──────────────────────────────── */
+  .footer {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px;
+    background: var(--bg-2);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .footer input[type=text] {
+    flex: 1;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 10px 18px;
+    color: var(--text);
+    font-family: var(--font-main);
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .footer input[type=text]::placeholder { color: var(--text-muted); }
+  .footer input[type=text]:focus { border-color: var(--accent); }
+  .send-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--accent);
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 17px;
+    transition: opacity .15s;
+    flex-shrink: 0;
+  }
+  .send-btn:hover { opacity: .85; }
+
+  /* ── Error text ──────────────────────────────────── */
+  .err { color: var(--danger); font-size: 13px; margin-top: 6px; }
+
+  /* ── Divider ─────────────────────────────────────── */
+  .divider {
+    text-align: center; font-size: 11px;
+    color: var(--text-muted); font-family: var(--font-mono);
+    letter-spacing: .5px; margin: 4px 0;
+  }
+
+  /* ── History panel ───────────────────────────────── */
+  .hist-btn {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    display: flex; align-items: center; gap: 5px;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .hist-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .hist-btn .hist-count {
+    background: var(--accent);
+    color: #000;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 8px;
+    display: none;
+  }
+  .hist-btn .hist-count.show { display: inline-block; }
+
+  /* Drawer overlay */
+  #histOverlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.5);
+    z-index: 200;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  #histOverlay.open { display: block; }
+
+  /* Drawer panel */
+  #histPanel {
+    position: fixed;
+    top: 0; right: -360px;
+    width: 340px; height: 100vh;
+    background: var(--bg-2);
+    border-left: 1px solid var(--border);
+    z-index: 201;
+    display: flex; flex-direction: column;
+    transition: right .25s cubic-bezier(.4,0,.2,1);
+    box-shadow: -8px 0 32px rgba(0,0,0,.4);
+  }
+  #histPanel.open { right: 0; }
+
+  .hist-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .hist-panel-title {
+    font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .hist-close {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 18px; cursor: pointer; padding: 4px;
+    line-height: 1;
+    transition: color .15s;
+  }
+  .hist-close:hover { color: var(--text); }
+
+  .hist-summary {
+    display: flex; gap: 0;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .hist-stat {
+    flex: 1; padding: 10px 0; text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .hist-stat:last-child { border-right: none; }
+  .hist-stat-val {
+    font-size: 16px; font-weight: 700;
+    color: var(--accent); font-family: var(--font-mono);
+  }
+  .hist-stat-label {
+    font-size: 10px; color: var(--text-muted);
+    font-family: var(--font-mono); margin-top: 2px;
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+
+  .hist-list {
+    flex: 1; overflow-y: auto; padding: 10px 0;
+  }
+  .hist-list::-webkit-scrollbar { width: 4px; }
+  .hist-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .hist-empty {
+    text-align: center; padding: 48px 20px;
+    color: var(--text-muted); font-size: 13px;
+  }
+  .hist-empty .hist-empty-icon { font-size: 32px; margin-bottom: 10px; }
+
+  .hist-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    transition: background .1s;
+  }
+  .hist-item:hover { background: var(--bg-3); }
+  .hist-item:last-child { border-bottom: none; }
+
+  .hist-item-icon { font-size: 22px; flex-shrink: 0; }
+  .hist-item-info { flex: 1; min-width: 0; }
+  .hist-item-name {
+    font-size: 12.5px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--text);
+  }
+  .hist-item-meta {
+    font-size: 11px; color: var(--text-muted);
+    font-family: var(--font-mono); margin-top: 2px;
+  }
+  .hist-item-saved {
+    font-size: 11px; font-family: var(--font-mono);
+    font-weight: 700; flex-shrink: 0;
+    color: var(--accent);
+  }
+
+  .hist-clear-btn {
+    margin: 10px 18px;
+    width: calc(100% - 36px);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--danger);
+    font-size: 12px; font-family: var(--font-mono);
+    padding: 8px; cursor: pointer;
+    transition: all .15s;
+    flex-shrink: 0;
+  }
+  .hist-clear-btn:hover { background: rgba(248,113,113,.1); border-color: var(--danger); }
+
+  /* ── Slash command popup ─────────────────────────── */
+  .footer-wrap {
+    position: relative;
+    flex: 1;
+  }
+  #cmdPopup {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0; right: 0;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 -8px 32px rgba(0,0,0,.5);
+    z-index: 100;
+    animation: slideUp .15s cubic-bezier(.34,1.56,.64,1);
+  }
+  @keyframes slideUp {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+  }
+  #cmdPopup.visible { display: block; }
+  .popup-header {
+    padding: 8px 14px 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    letter-spacing: .6px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  .cmd-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background .1s;
+    border-bottom: 1px solid var(--border);
+  }
+  .cmd-item:last-child { border-bottom: none; }
+  .cmd-item:hover, .cmd-item.active {
+    background: var(--bg-3);
+  }
+  .cmd-item.active .cmd-name { color: var(--accent); }
+  .cmd-icon {
+    font-size: 18px;
+    width: 28px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .cmd-info { flex: 1; min-width: 0; }
+  .cmd-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .cmd-name em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .cmd-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+  .cmd-tag {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Header -->
+  <div class="header">
+    <div class="bot-avatar">🗜️</div>
+    <div class="header-info">
+      <div class="header-name">CompressBot</div>
+      <div class="header-status">
+        <span class="status-dot"></span> online
+      </div>
+    </div>
+    <div class="header-badge">v2.0 · WEB</div>
+    <button class="hist-btn" id="histBtn" title="Compression history">
+      📋 History <span class="hist-count" id="histCount">0</span>
+    </button>
+  </div>
+
+  <!-- History drawer -->
+  <div id="histOverlay"></div>
+  <div id="histPanel">
+    <div class="hist-panel-header">
+      <div class="hist-panel-title">📋 Compression History</div>
+      <button class="hist-close" id="histClose">✕</button>
+    </div>
+    <div class="hist-summary" id="histSummary">
+      <div class="hist-stat">
+        <div class="hist-stat-val" id="statFiles">0</div>
+        <div class="hist-stat-label">Files</div>
+      </div>
+      <div class="hist-stat">
+        <div class="hist-stat-val" id="statSaved">0 KB</div>
+        <div class="hist-stat-label">Saved</div>
+      </div>
+      <div class="hist-stat">
+        <div class="hist-stat-val" id="statAvg">0%</div>
+        <div class="hist-stat-label">Avg. reduction</div>
+      </div>
+    </div>
+    <div class="hist-list" id="histList">
+      <div class="hist-empty">
+        <div class="hist-empty-icon">🗂️</div>
+        No files compressed yet.<br>Start compressing to see your history!
+      </div>
+    </div>
+    <button class="hist-clear-btn" id="histClearBtn">🗑️ Clear history</button>
+  </div>
+
+  <!-- Chat messages -->
+  <div id="chat"></div>
+
+  <!-- Footer input -->
+  <div class="footer">
+    <div class="footer-wrap">
+      <!-- Slash command popup -->
+      <div id="cmdPopup">
+        <div class="popup-header">⚡ Quick Commands</div>
+      </div>
+      <input type="text" id="textInput" placeholder="Try: /audio fast · /video balanced · /image · /pdf · /help" autocomplete="off" />
+    </div>
+    <button class="send-btn" id="sendBtn" title="Send">➤</button>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────
+const state = { step: "start", fileType: null, quality: null };
+const chat  = document.getElementById("chat");
+const input = document.getElementById("textInput");
+const sendBtn = document.getElementById("sendBtn");
+
+// ── History (sessionStorage — resets on tab close, GCP-safe) ──
+const TYPE_ICON_MAP = { audio:"🎧", video:"🎥", image:"🖼️", pdf:"📄", docx:"📝" };
+
+function histLoad() {
+  try { return JSON.parse(sessionStorage.getItem("cb_history") || "[]"); } catch { return []; }
+}
+function histSave(list) {
+  try { sessionStorage.setItem("cb_history", JSON.stringify(list)); } catch {}
+}
+function histAdd(entry) {
+  // entry: { name, fileType, originalSize, compressedSize, savedPct, time }
+  const list = histLoad();
+  list.unshift({ ...entry, time: new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) });
+  histSave(list);
+  histRender();
+}
+function histClear() {
+  sessionStorage.removeItem("cb_history");
+  histRender();
+}
+
+function histRender() {
+  const list      = histLoad();
+  const countEl   = document.getElementById("histCount");
+  const listEl    = document.getElementById("histList");
+  const statFiles = document.getElementById("statFiles");
+  const statSaved = document.getElementById("statSaved");
+  const statAvg   = document.getElementById("statAvg");
+
+  // Badge
+  countEl.textContent = list.length;
+  countEl.classList.toggle("show", list.length > 0);
+
+  // Stats
+  statFiles.textContent = list.length;
+  if (list.length > 0) {
+    const totalSaved = list.reduce((s, i) => s + (i.originalSize - i.compressedSize), 0);
+    const avgPct     = Math.round(list.reduce((s, i) => s + i.savedPct, 0) / list.length);
+    statSaved.textContent = totalSaved >= 1024
+      ? (totalSaved / 1024).toFixed(1) + " MB"
+      : Math.round(totalSaved) + " KB";
+    statAvg.textContent = avgPct + "%";
+  } else {
+    statSaved.textContent = "0 KB";
+    statAvg.textContent   = "0%";
+  }
+
+  // List
+  if (list.length === 0) {
+    listEl.innerHTML = `
+      <div class="hist-empty">
+        <div class="hist-empty-icon">🗂️</div>
+        No files compressed yet.<br>Start compressing to see your history!
+      </div>`;
+    return;
+  }
+
+  listEl.innerHTML = list.map(item => `
+    <div class="hist-item">
+      <div class="hist-item-icon">${TYPE_ICON_MAP[item.fileType] || "📄"}</div>
+      <div class="hist-item-info">
+        <div class="hist-item-name" title="${item.name}">${item.name}</div>
+        <div class="hist-item-meta">${item.originalSize} KB → ${item.compressedSize} KB · ${item.time}</div>
+      </div>
+      <div class="hist-item-saved">−${item.savedPct}%</div>
+    </div>
+  `).join("");
+}
+
+// Panel open/close
+const histBtn     = document.getElementById("histBtn");
+const histPanel   = document.getElementById("histPanel");
+const histOverlay = document.getElementById("histOverlay");
+const histClose   = document.getElementById("histClose");
+const histClearBtn = document.getElementById("histClearBtn");
+
+function openHist()  { histPanel.classList.add("open"); histOverlay.classList.add("open"); }
+function closeHist() { histPanel.classList.remove("open"); histOverlay.classList.remove("open"); }
+
+histBtn.addEventListener("click", openHist);
+histClose.addEventListener("click", closeHist);
+histOverlay.addEventListener("click", closeHist);
+histClearBtn.addEventListener("click", () => { histClear(); });
+
+// Init render on load
+histRender();
+
+// ── Helpers ───────────────────────────────────────────
+function now() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function scrollBottom() {
+  setTimeout(() => chat.scrollTop = chat.scrollHeight, 50);
+}
+
+function addDivider(text) {
+  const d = document.createElement("div");
+  d.className = "divider";
+  d.textContent = text;
+  chat.appendChild(d);
+  scrollBottom();
+}
+
+// Bot bubble ─────────────────────────────────────────
+function botMsg(html, extra = "") {
+  const row = document.createElement("div");
+  row.className = "row bot";
+  row.innerHTML = `
+    <div class="avatar">🗜️</div>
+    <div class="bubble">
+      ${html}
+      ${extra}
+      <div class="ts">${now()}</div>
+    </div>`;
+  chat.appendChild(row);
+  scrollBottom();
+  return row;
+}
+
+// User bubble ─────────────────────────────────────────
+function userMsg(text) {
+  const row = document.createElement("div");
+  row.className = "row user";
+  row.innerHTML = `
+    <div class="avatar">👤</div>
+    <div class="bubble">
+      ${text}
+      <div class="ts">${now()}</div>
+    </div>`;
+  chat.appendChild(row);
+  scrollBottom();
+}
+
+// Typing indicator ────────────────────────────────────
+function showTyping() {
+  const row = document.createElement("div");
+  row.className = "row bot typing";
+  row.id = "typing";
+  row.innerHTML = `
+    <div class="avatar">🗜️</div>
+    <div class="bubble">
+      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    </div>`;
+  chat.appendChild(row);
+  scrollBottom();
+}
+function hideTyping() {
+  const t = document.getElementById("typing");
+  if (t) t.remove();
+}
+
+// Chip buttons ────────────────────────────────────────
+function chips(items) {
+  const wrap = document.createElement("div");
+  wrap.className = "btn-grid";
+  items.forEach(({ label, value, cb }) => {
+    const btn = document.createElement("button");
+    btn.className = "chip";
+    btn.textContent = label;
+    btn.onclick = () => {
+      // Disable all siblings
+      wrap.querySelectorAll(".chip").forEach(b => { b.disabled = true; b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      cb(value, label);
+    };
+    wrap.appendChild(btn);
+  });
+  return wrap;
+}
+
+// ── Flow helpers ───────────────────────────────────────
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function botSay(html, extra = "", ms = 600) {
+  showTyping();
+  await delay(ms);
+  hideTyping();
+  return botMsg(html, extra);
+}
+
+// ── STEP: Start ───────────────────────────────────────
+async function stepStart() {
+  state.step = "start"; state.fileType = null; state.quality = null;
+  addDivider("── session started ──");
+
+  const row = await botSay(
+    `👋 <strong>Welcome to CompressBot!</strong><br><br>
+     I can compress your files while keeping good quality:<br>
+     🎧 Audio &nbsp;·&nbsp; 🎥 Video &nbsp;·&nbsp; 🖼️ Image &nbsp;·&nbsp; 📄 PDF &nbsp;·&nbsp; 📝 DOCX<br><br>
+     <strong>Choose a file type to get started:</strong>`
+  );
+
+  const c = chips([
+    { label: "🎧 Audio", value: "audio" },
+    { label: "🎥 Video", value: "video" },
+    { label: "🖼️ Image", value: "image" },
+    { label: "📄 PDF",   value: "pdf"   },
+    { label: "📝 DOCX",  value: "docx"  },
+  ]);
+  c.dataset.role = "type-select";
+  row.querySelector(".bubble").insertBefore(c, row.querySelector(".ts"));
+
+  c.querySelectorAll(".chip").forEach(btn => {
+    btn.onclick = async (e) => {
+      c.querySelectorAll(".chip").forEach(b => { b.disabled = true; b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      const val = btn.dataset ? btn.dataset.value : null;
+      // Find value from items array
+      const label = btn.textContent.trim();
+      const map = { "🎧 Audio": "audio", "🎥 Video": "video", "🖼️ Image": "image", "📄 PDF": "pdf", "📝 DOCX": "docx" };
+      const fileType = map[label] || label.toLowerCase();
+      await stepQuality(fileType, label);
+    };
+  });
+
+  // Re-wire since chips() uses a separate cb API
+  c.querySelectorAll(".chip").forEach(btn => {
+    const orig = btn.onclick;
+    btn.onclick = null;
+    btn.addEventListener("click", async () => {
+      c.querySelectorAll(".chip").forEach(b => { b.disabled = true; b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      const label = btn.textContent.trim();
+      const map = { "🎧 Audio": "audio", "🎥 Video": "video", "🖼️ Image": "image", "📄 PDF": "pdf", "📝 DOCX": "docx" };
+      const fileType = map[label] || label.replace(/[^\w]/g, "").toLowerCase();
+      await stepQuality(fileType, label);
+    }, { once: false });
+  });
+}
+
+// ── STEP: Quality ─────────────────────────────────────
+async function stepQuality(fileType, fileLabel) {
+  state.fileType = fileType;
+  userMsg(fileLabel + " selected");
+
+  const row = await botSay(
+    `${fileLabel} — got it! 👍<br><br>
+     Now choose a compression mode:<br><br>
+     <strong>⚡ Fast</strong> — lighter compression, faster processing<br>
+     <strong>⚖️ Super</strong> — heavier compression, smaller file size`
+  );
+
+  const bubble = row.querySelector(".bubble");
+  const ts     = bubble.querySelector(".ts");
+  const grid   = document.createElement("div");
+  grid.className = "btn-grid";
+
+  [{ label: "⚡ Fast", value: "fast" }, { label: "⚖️ Super", value: "balanced" }].forEach(({ label, value }) => {
+    const btn = document.createElement("button");
+    btn.className = "chip";
+    btn.textContent = label;
+    btn.addEventListener("click", async () => {
+      grid.querySelectorAll(".chip").forEach(b => { b.disabled = true; b.classList.remove("selected"); });
+      btn.classList.add("selected");
+      await stepUpload(value, label);
+    }, { once: true });
+    grid.appendChild(btn);
+  });
+
+  bubble.insertBefore(grid, ts);
+}
+
+// ── STEP: Upload ──────────────────────────────────────
+const ACCEPT_MAP = {
+  audio: ".mp3,.ogg,.wav,.flac,.aac,.m4a,.opus,.wma,.oga,.aiff,.aif,.amr",
+  video: ".mp4,.mov,.avi,.mkv,.wmv,.flv,.webm,.3gp,.m4v,.ts,.mts,.vob,.ogv,.rmvb",
+  image: ".jpg,.jpeg,.png,.webp,.bmp,.tiff,.tif,.heic,.heif,.gif,.avif,.jfif",
+  pdf:   ".pdf",
+  docx:  ".docx",
+};
+
+async function stepUpload(quality, qualityLabel) {
+  state.quality = quality;
+  userMsg(qualityLabel + " mode");
+
+  const row = await botSay(
+    `<strong>${qualityLabel} mode</strong> selected! ✅<br><br>
+     Now drop your <strong>${state.fileType.toUpperCase()}</strong> file below 👇`
+  );
+
+  const bubble = row.querySelector(".bubble");
+  const ts     = bubble.querySelector(".ts");
+
+  bubble.insertBefore(buildUploadZone(state.fileType), ts);
+}
+
+// ── Upload & compress ──────────────────────────────────
+async function handleFile(file) {
+  if (!file) return;
+
+  userMsg(`📎 <em>${file.name}</em> (${(file.size/1024).toFixed(1)} KB)`);
+
+  // Show progress bubble
+  const progRow = await botSay("⏳ Compressing your file… please wait.");
+  const bubble  = progRow.querySelector(".bubble");
+  const ts      = bubble.querySelector(".ts");
+
+  const progWrap = document.createElement("div");
+  progWrap.className = "progress-wrap";
+  progWrap.innerHTML = `<div class="progress-bar" id="pbar" style="width:0%"></div>`;
+  bubble.insertBefore(progWrap, ts);
+
+  // Animate fake progress (real progress needs chunked upload; fake is fine for UX)
+  const pbar = progWrap.querySelector("#pbar");
+  let pct = 0;
+  const ticker = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 8, 88);
+    pbar.style.width = pct + "%";
+  }, 200);
+
+  // Build FormData
+  const fd = new FormData();
+  fd.append("file",    file);
+  fd.append("quality", state.quality);
+
+  try {
+    const res  = await fetch("/compress", { method: "POST", body: fd });
+    const data = await res.json();
+
+    clearInterval(ticker);
+    pbar.style.width = "100%";
+    await delay(300);
+
+    if (!res.ok || data.error) throw new Error(data.error || "Unknown error");
+
+    // Save to history
+    histAdd({
+      name:           file.name,
+      fileType:       data.file_type,
+      originalSize:   data.original_size,
+      compressedSize: data.compressed_size,
+      savedPct:       data.saved_pct,
+    });
+    bubble.querySelector("p") && (bubble.querySelector("p").textContent = "✅ Done!");
+
+    // Replace bubble content
+    const savedColor = data.saved_pct > 0 ? "#4ade80" : "#f87171";
+    const resultHTML = `
+      ✅ <strong>Compressed successfully!</strong>
+      <div class="result-card">
+        <div class="result-row"><span>📁 Original</span><span>${data.original_size} KB</span></div>
+        <div class="result-row"><span>📦 Compressed</span><span>${data.compressed_size} KB</span></div>
+        <div class="result-row">
+          <span>💾 Saved</span>
+          <span>${data.saved_pct}% <span class="saved-badge" style="border-color:${savedColor};color:${savedColor}">${data.saved_pct > 0 ? "−" + data.saved_pct + "%" : "~same"}</span></span>
+        </div>
+      </div>
+      <a class="dl-btn" href="/download/${encodeURIComponent(data.download_id)}?name=${encodeURIComponent(data.download_name)}" download="${data.download_name}">
+        ⬇️ Download ${data.download_name}
+      </a>
+    `;
+
+    // Replace bubble inner (keep ts)
+    bubble.innerHTML = resultHTML + `<div class="ts">${now()}</div>`;
+
+    await delay(400);
+
+    // Offer to do another
+    const row2 = await botSay("Want to compress another file? 🔄");
+    const bub2 = row2.querySelector(".bubble");
+    const ts2  = bub2.querySelector(".ts");
+    const g    = document.createElement("div");
+    g.className = "btn-grid";
+
+    const btnAnother = document.createElement("button");
+    btnAnother.className = "chip";
+    btnAnother.textContent = "🔄 Compress Another";
+    btnAnother.addEventListener("click", () => stepStart(), { once: true });
+
+    const btnSame = document.createElement("button");
+    btnSame.className = "chip";
+    btnSame.textContent = "📂 Same Type Again";
+    btnSame.addEventListener("click", async () => {
+      const ft = state.fileType;
+      const ql = state.quality;
+      const qlLabel = ql === "fast" ? "⚡ Fast" : "⚖️ Super";
+      userMsg("Same type again");
+      await stepUpload(ql, qlLabel);
+    }, { once: true });
+
+    g.appendChild(btnAnother);
+    g.appendChild(btnSame);
+    bub2.insertBefore(g, ts2);
+
+  } catch (err) {
+    clearInterval(ticker);
+    bubble.innerHTML += `<div class="err">❌ Error: ${err.message}</div><div class="ts">${now()}</div>`;
+    await delay(500);
+    await botSay("Something went wrong. Try again or choose a different file.");
+  }
+}
+
+// ── Command parser ────────────────────────────────────
+// Supported formats:
+//   /audio [fast|balanced]
+//   /video [fast|balanced]
+//   /image [fast|balanced]
+//   /pdf   [fast|balanced]
+//   /docx  [fast|balanced]
+//   /start | /restart
+//   /help
+
+const CMD_ALIASES = {
+  audio: "audio", musik: "audio", mp3: "audio", sound: "audio",
+  video: "video", mp4: "video", film: "video",
+  image: "image", img: "image", foto: "image", gambar: "image", jpg: "image", png: "image",
+  pdf: "pdf",
+  docx: "docx", word: "docx",
+};
+const TYPE_EMOJI = { audio:"🎧", video:"🎥", image:"🖼️", pdf:"📄", docx:"📝" };
+
+async function handleText() {
+  const raw = input.value.trim();
+  if (!raw) return;
+  input.value = "";
+  userMsg(raw);
+
+  const lower = raw.toLowerCase().trim();
+
+  // ── /help ────────────────────────────────────────────
+  if (lower === "/help" || lower === "help" || lower === "?") {
+    await botSay(
+      `📋 <strong>Quick Commands</strong><br><br>` +
+      `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/audio</code> &nbsp;→ compress audio (default: fast)<br>` +
+      `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/video balanced</code> &nbsp;→ compress video (super mode)<br>` +
+      `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/image fast</code> &nbsp;→ compress image (fast mode)<br>` +
+      `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/pdf</code> &nbsp;→ compress PDF<br>` +
+      `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/docx</code> &nbsp;→ compress Word file<br>` +
+      `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/start</code> &nbsp;→ restart from beginning<br><br>` +
+      `Quality: <strong>fast</strong> (default) or <strong>balanced</strong> (smaller file)<br>` +
+      `Example: <code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/video balanced</code>`
+    );
+    return;
+  }
+
+  // ── /start | /restart ─────────────────────────────────
+  if (["/start", "/restart", "start", "restart"].includes(lower)) {
+    await stepStart();
+    return;
+  }
+
+  // ── slash commands ────────────────────────────────────
+  if (lower.startsWith("/")) {
+    const parts   = lower.slice(1).trim().split(/\s+/);
+    const typeRaw = parts[0];
+    const qualRaw = parts[1] || "";
+
+    const fileType = CMD_ALIASES[typeRaw];
+
+    if (!fileType) {
+      await botSay(
+        '❓ Unknown command <code style="background:var(--bg-3);padding:2px 5px;border-radius:4px;font-family:var(--font-mono)">' + raw + '</code><br><br>' +
+        'Type <code style="background:var(--bg-3);padding:2px 5px;border-radius:4px;font-family:var(--font-mono)">/help</code> to see available commands.'
+      );
+      return;
+    }
+
+    state.fileType = fileType;
+
+    // Quality NOT specified → ask first (same as button flow)
+    const qualSpecified = ["fast","balanced","super","f","b","s"].includes(qualRaw);
+    if (!qualRaw || !qualSpecified) {
+      const label = TYPE_EMOJI[fileType] + " " + fileType.charAt(0).toUpperCase() + fileType.slice(1);
+      await stepQuality(fileType, label);
+      return;
+    }
+
+    // Quality specified → skip straight to upload
+    const quality   = ["balanced", "super", "b", "s"].includes(qualRaw) ? "balanced" : "fast";
+    const qualLabel = quality === "fast" ? "⚡ Fast" : "⚖️ Super";
+    state.quality   = quality;
+
+    await botSay(
+      TYPE_EMOJI[fileType] + ' <strong>' + fileType.toUpperCase() + '</strong> · ' + qualLabel + ' mode — got it! ⚡<br>Drop your file below 👇'
+    );
+
+    const lastBubble = chat.lastElementChild.querySelector(".bubble");
+    lastBubble.insertBefore(buildUploadZone(fileType), lastBubble.querySelector(".ts"));
+    return;
+  }
+
+  // ── plain text fallback ───────────────────────────────
+  await botSay(
+    `Gunakan tombol di atas, atau ketik perintah cepat:<br><br>` +
+    `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/audio</code> &nbsp;` +
+    `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/video balanced</code> &nbsp;` +
+    `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/image</code> &nbsp;` +
+    `<code style="background:var(--bg-3);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px">/help</code>`
+  );
+}
+
+// ── Reusable upload zone builder ──────────────────────
+function buildUploadZone(fileType) {
+  const zone = document.createElement("div");
+  zone.className = "upload-zone";
+  zone.innerHTML = `
+    <input type="file" accept="${ACCEPT_MAP[fileType] || "*/*"}" />
+    <div class="upload-icon">📂</div>
+    <div class="upload-label">Click or drag & drop your file here</div>
+    <div class="upload-hint">Accepted: ${ACCEPT_MAP[fileType] || "any"}</div>
+  `;
+  const fileInput = zone.querySelector("input[type=file]");
+  zone.addEventListener("dragover",  e => { e.preventDefault(); zone.classList.add("drag-over"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("drag-over"));
+  zone.addEventListener("drop",      e => { e.preventDefault(); zone.classList.remove("drag-over"); handleFile(e.dataTransfer.files[0]); });
+  fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
+  return zone;
+}
+
+input.addEventListener("keydown", e => { if (e.key === "Enter") handleText(); });
+sendBtn.addEventListener("click", handleText);
+
+// ── Slash command popup ───────────────────────────────
+const popup = document.getElementById("cmdPopup");
+
+const ALL_COMMANDS = [
+  { cmd: "/audio",          icon: "🎧", desc: "Compress audio file",       tag: "mp3 wav flac aac" },
+  { cmd: "/audio fast",     icon: "🎧", desc: "Audio — fast mode",          tag: "fast" },
+  { cmd: "/audio balanced", icon: "🎧", desc: "Audio — super compression",  tag: "balanced" },
+  { cmd: "/video",          icon: "🎥", desc: "Compress video file",        tag: "mp4 mkv avi" },
+  { cmd: "/video fast",     icon: "🎥", desc: "Video — fast mode",          tag: "fast" },
+  { cmd: "/video balanced", icon: "🎥", desc: "Video — super compression",  tag: "balanced" },
+  { cmd: "/image",          icon: "🖼️", desc: "Compress image file",        tag: "jpg png webp" },
+  { cmd: "/image fast",     icon: "🖼️", desc: "Image — fast mode",          tag: "fast" },
+  { cmd: "/image balanced", icon: "🖼️", desc: "Image — super compression",  tag: "balanced" },
+  { cmd: "/pdf",            icon: "📄", desc: "Compress PDF file",          tag: "pdf" },
+  { cmd: "/pdf balanced",   icon: "📄", desc: "PDF — super compression",    tag: "balanced" },
+  { cmd: "/docx",           icon: "📝", desc: "Compress Word document",     tag: "docx word" },
+  { cmd: "/docx balanced",  icon: "📝", desc: "DOCX — super compression",   tag: "balanced" },
+  { cmd: "/start",          icon: "🏠", desc: "Restart from the beginning", tag: "" },
+  { cmd: "/help",           icon: "❓", desc: "Show all commands",           tag: "" },
+];
+
+let activeIdx = -1;
+let visibleCmds = [];
+
+function highlightMatch(str, query) {
+  if (!query) return str;
+  const idx = str.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return str;
+  return str.slice(0, idx) + `<em>${str.slice(idx, idx + query.length)}</em>` + str.slice(idx + query.length);
+}
+
+function renderPopup(query) {
+  // Filter by query (everything after the slash)
+  visibleCmds = ALL_COMMANDS.filter(c =>
+    c.cmd.toLowerCase().includes(query.toLowerCase()) ||
+    c.desc.toLowerCase().includes(query.toLowerCase()) ||
+    c.tag.toLowerCase().includes(query.toLowerCase())
+  ).slice(0, 7); // max 7 items
+
+  // Remove old items (keep header)
+  popup.querySelectorAll(".cmd-item").forEach(el => el.remove());
+
+  if (visibleCmds.length === 0) {
+    hidePopup();
+    return;
+  }
+
+  activeIdx = 0; // default highlight first
+
+  visibleCmds.forEach((c, i) => {
+    const item = document.createElement("div");
+    item.className = "cmd-item" + (i === 0 ? " active" : "");
+    item.innerHTML = `
+      <div class="cmd-icon">${c.icon}</div>
+      <div class="cmd-info">
+        <div class="cmd-name">${highlightMatch(c.cmd, query)}</div>
+        <div class="cmd-desc">${c.desc}</div>
+      </div>
+      ${c.tag ? `<div class="cmd-tag">${c.tag}</div>` : ""}
+    `;
+    item.addEventListener("mouseenter", () => setActive(i));
+    item.addEventListener("click", () => selectCmd(i));
+    popup.appendChild(item);
+  });
+
+  popup.classList.add("visible");
+}
+
+function setActive(idx) {
+  activeIdx = idx;
+  popup.querySelectorAll(".cmd-item").forEach((el, i) => {
+    el.classList.toggle("active", i === idx);
+  });
+}
+
+function selectCmd(idx) {
+  const cmd = visibleCmds[idx];
+  if (!cmd) return;
+  input.value = cmd.cmd + " ";
+  input.focus();
+  hidePopup();
+  // If command is complete (has all parts), auto-submit
+  const parts = cmd.cmd.trim().split(/\s+/);
+  if (parts.length >= 2 || ["/start", "/help"].includes(cmd.cmd.trim())) {
+    handleText();
+  }
+}
+
+function hidePopup() {
+  popup.classList.remove("visible");
+  activeIdx = -1;
+}
+
+// Input listener for popup trigger
+input.addEventListener("input", () => {
+  const val = input.value;
+  if (val.startsWith("/")) {
+    renderPopup(val); // pass full value so filter works on e.g. "/vid"
+  } else {
+    hidePopup();
+  }
+});
+
+// Keyboard navigation inside popup
+input.addEventListener("keydown", e => {
+  if (!popup.classList.contains("visible")) return;
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    setActive(Math.max(0, activeIdx - 1));
+    popup.querySelectorAll(".cmd-item")[activeIdx]?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    setActive(Math.min(visibleCmds.length - 1, activeIdx + 1));
+    popup.querySelectorAll(".cmd-item")[activeIdx]?.scrollIntoView({ block: "nearest" });
+  } else if (e.key === "Tab" || e.key === "Enter") {
+    if (activeIdx >= 0) {
+      e.preventDefault();
+      selectCmd(activeIdx);
+    }
+  } else if (e.key === "Escape") {
+    hidePopup();
+  }
+});
+
+// Hide popup when clicking outside
+document.addEventListener("click", e => {
+  if (!popup.contains(e.target) && e.target !== input) hidePopup();
+});
+
+// ── Boot ───────────────────────────────────────────────
+stepStart();
+</script>
+</body>
+</html>

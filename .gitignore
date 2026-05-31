@@ -1,0 +1,4 @@
+echo uploads/ > .gitignore
+echo compressed/ >> .gitignore
+echo __pycache__/ >> .gitignore
+echo *.pyc >> .gitignore

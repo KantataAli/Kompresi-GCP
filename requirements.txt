@@ -1,0 +1,8 @@
+flask
+flask-cors
+pydub
+Pillow
+pypdf
+python-docx
+pillow-heif
+werkzeug
