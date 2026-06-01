@@ -6,3 +6,5 @@ pypdf
 python-docx
 pillow-heif
 werkzeug
+google-cloud-storage
+gunicorn
