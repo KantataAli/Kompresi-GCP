@@ -81,13 +81,13 @@ def detect_type(filename):
 
 # ── GCS helpers ───────────────────────────────────────────────────────────────
 
-def gcs_upload(local_path, blob_name):
-    """Upload file to GCS dan return public URL."""
+def gcs_upload(local_path, blob_name, download_name):
+    """Upload file to GCS dan return public URL dengan force download."""
     client = gcs.Client()
     bucket = client.bucket(GCS_BUCKET)
     blob   = bucket.blob(blob_name)
+    blob.content_disposition = f'attachment; filename="{download_name}"'
     blob.upload_from_filename(local_path)
-    # Return public URL langsung
     return f"https://storage.googleapis.com/{GCS_BUCKET}/{blob_name}"
 
 
@@ -206,7 +206,7 @@ def compress():
         # ── GCS mode: upload dan return signed URL ─────────────────────────
         if USE_GCS:
             blob_name   = f"compressed/{uid}{out_ext}"
-            signed_url  = gcs_upload(output_path, blob_name)
+            signed_url  = gcs_upload(output_path, blob_name, download_name)
             os.remove(output_path)  # hapus file lokal setelah upload ke GCS
             return jsonify({
                 "success":         True,
