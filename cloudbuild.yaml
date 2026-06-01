@@ -1,0 +1,32 @@
+steps:
+  # Step 1: Build Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-southeast2-docker.pkg.dev/kompresi-gcp/kompresi-repo/kompresi-gcp:$COMMIT_SHA'
+      - '.'
+
+  # Step 2: Push image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'asia-southeast2-docker.pkg.dev/kompresi-gcp/kompresi-repo/kompresi-gcp:$COMMIT_SHA'
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'kompresi-gcp'
+      - '--image=asia-southeast2-docker.pkg.dev/kompresi-gcp/kompresi-repo/kompresi-gcp:$COMMIT_SHA'
+      - '--region=asia-southeast2'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=1Gi'
+      - '--timeout=3600'
+      - '--set-env-vars=GCS_BUCKET=kompresi-gcp-files'
+
+images:
+  - 'asia-southeast2-docker.pkg.dev/kompresi-gcp/kompresi-repo/kompresi-gcp:$COMMIT_SHA'
