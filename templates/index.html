@@ -963,7 +963,7 @@ async function handleFile(file) {
           <span>${data.saved_pct}% <span class="saved-badge" style="border-color:${savedColor};color:${savedColor}">${data.saved_pct > 0 ? "−" + data.saved_pct + "%" : "~same"}</span></span>
         </div>
       </div>
-      <a class="dl-btn" href="/download/${encodeURIComponent(data.download_id)}?name=${encodeURIComponent(data.download_name)}" download="${data.download_name}">
+      <a class="dl-btn" href="${data.use_gcs ? data.download_url : '/download/' + encodeURIComponent(data.download_id) + '?name=' + encodeURIComponent(data.download_name)}" download="${data.download_name}">
         ⬇️ Download ${data.download_name}
       </a>
     `;
