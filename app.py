@@ -82,19 +82,13 @@ def detect_type(filename):
 # ── GCS helpers ───────────────────────────────────────────────────────────────
 
 def gcs_upload(local_path, blob_name):
-    """Upload file to GCS and return a signed URL valid for 1 hour."""
-    client  = gcs.Client()
-    bucket  = client.bucket(GCS_BUCKET)
-    blob    = bucket.blob(blob_name)
+    """Upload file to GCS dan return public URL."""
+    client = gcs.Client()
+    bucket = client.bucket(GCS_BUCKET)
+    blob   = bucket.blob(blob_name)
     blob.upload_from_filename(local_path)
-    # Generate signed URL (1 hour)
-    import datetime
-    url = blob.generate_signed_url(
-        expiration=datetime.timedelta(hours=1),
-        method="GET",
-        version="v4",
-    )
-    return url
+    # Return public URL langsung
+    return f"https://storage.googleapis.com/{GCS_BUCKET}/{blob_name}"
 
 
 # ── Compression functions ──────────────────────────────────────────────────────
